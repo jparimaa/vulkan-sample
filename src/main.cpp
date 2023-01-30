@@ -29,12 +29,14 @@ std::vector<VkSemaphore> m_imageAvailableBinarySemaphores;
 std::vector<VkSemaphore> m_renderFinishedBinarySemaphores;
 VkFence m_fence;
 
-const std::vector<const char*> c_validationLayers = { "VK_LAYER_KHRONOS_validation" };
-const std::vector<const char*> c_instanceExtensions{ VK_EXT_DEBUG_UTILS_EXTENSION_NAME };
+const std::vector<const char*> c_validationLayers = {};
+const std::vector<const char*> c_instanceExtensions{};
+//const std::vector<const char*> c_validationLayers = { "VK_LAYER_KHRONOS_validation" };
+//const std::vector<const char*> c_instanceExtensions{ VK_EXT_DEBUG_UTILS_EXTENSION_NAME };
 const std::vector<const char*> c_deviceExtensions{ VK_KHR_SWAPCHAIN_EXTENSION_NAME };
 const VkPresentModeKHR c_presentMode = VK_PRESENT_MODE_FIFO_KHR;
-const int c_windowWidth = 800;
-const int c_windowHeight = 600;
+const int c_windowWidth = 7680;
+const int c_windowHeight = 3840;
 const VkSurfaceFormatKHR c_windowSurfaceFormat{ VK_FORMAT_B8G8R8A8_UNORM, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR };
 const VkExtent2D c_windowExtent{ c_windowWidth, c_windowHeight };
 const uint32_t c_swapchainImageCount = 3;
@@ -383,8 +385,8 @@ int main(void)
 			transferDstBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 			transferDstBarrier.image = m_swapchainImages[imageIndex];
 			transferDstBarrier.subresourceRange = subresourceRange;
-			transferDstBarrier.srcAccessMask = VK_ACCESS_NONE;
-			transferDstBarrier.dstAccessMask = VK_ACCESS_NONE;
+			transferDstBarrier.srcAccessMask = 0;
+			transferDstBarrier.dstAccessMask = 0;
 
 			vkCmdPipelineBarrier(cb, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr, 1, &transferDstBarrier);
 		}
