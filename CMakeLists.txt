@@ -10,6 +10,11 @@ set(_exe_source_list
 add_executable(${_target} ${_exe_source_list})
 
 find_package(Vulkan REQUIRED)
-add_subdirectory(glfw)
-target_include_directories(${_target} PRIVATE ${Vulkan_INCLUDE_DIRS})
-target_link_libraries(${_target} PRIVATE glfw ${Vulkan_LIBRARIES})
+find_package(X11 REQUIRED)
+
+message(STATUS "X11_FOUND = ${X11_FOUND}")
+message(STATUS "X11_INCLUDE_DIR = ${X11_INCLUDE_DIR}")
+message(STATUS "X11_LIBRARIES = ${X11_LIBRARIES}")
+
+target_include_directories(${_target} PRIVATE ${Vulkan_INCLUDE_DIRS} ${X11_INCLUDE_DIR})
+target_link_libraries(${_target} PRIVATE ${Vulkan_LIBRARIES} ${X11_LIBRARIES})

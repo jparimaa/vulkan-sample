@@ -3,8 +3,11 @@
 #include <cstdlib>
 #include <array>
 #include <set>
+#define VK_USE_PLATFORM_XLIB_KHR
 #include <vulkan/vulkan.h>
-#include <GLFW/glfw3.h>
+#include <X11/Xlib.h>
+#include <X11/Xutil.h>
+#include <X11/Xos.h>
 
 struct QueueFamilyIndices {
 	int graphicsFamily = -1;
@@ -13,7 +16,6 @@ struct QueueFamilyIndices {
 };
 
 VkInstance m_instance;
-GLFWwindow* m_window;
 bool m_shouldQuit = false;
 VkSurfaceKHR m_surface;
 QueueFamilyIndices m_queueFamilyIndices;
@@ -29,14 +31,20 @@ std::vector<VkSemaphore> m_imageAvailableBinarySemaphores;
 std::vector<VkSemaphore> m_renderFinishedBinarySemaphores;
 VkFence m_fence;
 
+Display *dis;
+int screen;
+Window win;
+GC gc;
+
 const std::vector<const char*> c_validationLayers = {};
-const std::vector<const char*> c_instanceExtensions{};
-//const std::vector<const char*> c_validationLayers = { "VK_LAYER_KHRONOS_validation" };
-//const std::vector<const char*> c_instanceExtensions{ VK_EXT_DEBUG_UTILS_EXTENSION_NAME };
+//const std::vector<const char*> c_instanceExtensions{};
+// const std::vector<const char*> c_validationLayers = { "VK_LAYER_KHRONOS_validation" };
+// const std::vector<const char*> c_instanceExtensions{ VK_EXT_DEBUG_UTILS_EXTENSION_NAME, VK_KHR_SURFACE_EXTENSION_NAME , VK_KHR_XLIB_SURFACE_EXTENSION_NAME};
+const std::vector<const char*> c_instanceExtensions{ VK_KHR_SURFACE_EXTENSION_NAME , VK_KHR_XLIB_SURFACE_EXTENSION_NAME};
 const std::vector<const char*> c_deviceExtensions{ VK_KHR_SWAPCHAIN_EXTENSION_NAME };
 const VkPresentModeKHR c_presentMode = VK_PRESENT_MODE_FIFO_KHR;
-const int c_windowWidth = 7680;
-const int c_windowHeight = 3840;
+const int c_windowWidth = 1848;
+const int c_windowHeight = 1016;
 const VkSurfaceFormatKHR c_windowSurfaceFormat{ VK_FORMAT_B8G8R8A8_UNORM, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR };
 const VkExtent2D c_windowExtent{ c_windowWidth, c_windowHeight };
 const uint32_t c_swapchainImageCount = 3;
@@ -118,18 +126,6 @@ void getQueueFamilies()
 	m_queueFamilyIndices = indices;
 }
 
-void glfwErrorCallback(int error, const char* description) { printf("GLFW error %d: %s\n", error, description); }
-
-void initGLFW()
-{
-	glfwSetErrorCallback(glfwErrorCallback);
-	const int glfwInitialized = glfwInit();
-	CHECK(glfwInitialized == GLFW_TRUE);
-
-	const int vulkanSupported = glfwVulkanSupported();
-	CHECK(vulkanSupported == GLFW_TRUE);
-}
-
 void createInstance()
 {
 	VkApplicationInfo appInfo{};
@@ -141,13 +137,6 @@ void createInstance()
 	appInfo.apiVersion = VK_API_VERSION_1_2;
 
 	std::vector<const char*> instanceExtensions;
-	unsigned int glfwExtensionCount = 0;
-	const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
-
-	for (unsigned int i = 0; i < glfwExtensionCount; ++i) {
-		instanceExtensions.push_back(glfwExtensions[i]);
-	}
-
 	instanceExtensions.insert(instanceExtensions.end(), c_instanceExtensions.begin(), c_instanceExtensions.end());
 
 	VkDebugUtilsMessengerCreateInfoEXT debugUtilsCreateInfo{};
@@ -171,24 +160,83 @@ void createInstance()
 	VK_CHECK(vkCreateInstance(&instanceCreateInfo, nullptr, &m_instance));
 }
 
-void handleKey(GLFWwindow* /*window*/, int key, int /*scancode*/, int action, int /*mods*/)
-{
-	if (action == GLFW_RELEASE && key == GLFW_KEY_ESCAPE) {
-		m_shouldQuit = true;
-	}
-}
-
 void createWindow()
 {
-	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-	glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-	m_window = glfwCreateWindow(c_windowWidth, c_windowHeight, "Vulkan", nullptr, nullptr);
-	CHECK(m_window);
-	glfwSetWindowPos(m_window, 200, 200);
+	/* get the colors black and white (see section for details) */
+	unsigned long black,white;
 
-	glfwSetKeyCallback(m_window, handleKey);
+	/* use the information from the environment variable DISPLAY
+	   to create the X connection:
+	*/
+	dis=XOpenDisplay((char *)0);
+   	screen=DefaultScreen(dis);
+	black=BlackPixel(dis,screen),	/* get color black */
+	white=WhitePixel(dis, screen);  /* get color white */
 
-	VK_CHECK(glfwCreateWindowSurface(m_instance, m_window, nullptr, &m_surface));
+	/* once the display is initialized, create the window.
+	   This window will be have be 200 pixels across and 300 down.
+	   It will have the foreground white and background black
+	*/
+// XSetWindowAttributes wa;
+// wa.override_redirect = True;
+
+   	win=XCreateSimpleWindow(dis,DefaultRootWindow(dis),0,0,		c_windowWidth, c_windowHeight, 5, white, black);
+
+	/* here is where some properties of the window can be set.
+	   The third and fourth items indicate the name which appears
+	   at the top of the window and the name of the minimized window
+	   respectively.
+	*/
+	XSetStandardProperties(dis,win,"My Window","HI!",None,NULL,0,NULL);
+
+	/* this routine determines which types of input are allowed in
+	   the input.  see the appropriate section for details...
+	*/
+	XSelectInput(dis, win, ExposureMask|ButtonPressMask|KeyPressMask);
+
+	/* create the Graphics Context */
+        gc=XCreateGC(dis, win, 0,0);
+
+	/* here is another routine to set the foreground and background
+	   colors _currently_ in use in the window.
+	*/
+	XSetBackground(dis,gc,white);
+	XSetForeground(dis,gc,black);
+
+	/* clear the window and bring it on top of the other windows */
+	XClearWindow(dis, win);
+	XMapRaised(dis, win);
+/*
+	    Atom wm_state = XInternAtom(dis, "_NET_WM_STATE", False);
+    Atom fullscreen = XInternAtom(dis, "_NET_WM_STATE_FULLSCREEN", False);
+
+    XEvent xev;
+    memset(&xev, 0, sizeof(xev));
+    xev.type = ClientMessage;
+    xev.xclient.window = win;
+    xev.xclient.message_type = wm_state;
+    xev.xclient.format = 32;
+    xev.xclient.data.l[0] = 1;
+    xev.xclient.data.l[1] = fullscreen;
+    xev.xclient.data.l[2] = 0;
+
+  XSendEvent (dis, DefaultRootWindow(dis), False,
+                    SubstructureRedirectMask | SubstructureNotifyMask, &xev);
+
+*/
+
+    XFlush(dis);
+
+
+
+// surface
+	VkXlibSurfaceCreateInfoKHR createInfo{};
+	createInfo.sType = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR;
+	createInfo.pNext =nullptr;
+    createInfo.flags = 0;
+    createInfo.dpy = dis;
+    createInfo.window = win;
+	vkCreateXlibSurfaceKHR(m_instance, &createInfo, nullptr, &m_surface);
 }
 
 void getPhysicalDevice()
@@ -255,7 +303,7 @@ void createSwapchain()
 	createInfo.minImageCount = c_swapchainImageCount;
 	createInfo.imageFormat = c_windowSurfaceFormat.format;
 	createInfo.imageColorSpace = c_windowSurfaceFormat.colorSpace;
-	createInfo.imageExtent = c_windowExtent;
+	createInfo.imageExtent = {c_windowWidth,c_windowHeight};
 	createInfo.imageArrayLayers = 1;
 	createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 	createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
@@ -333,15 +381,15 @@ void destroyResources()
 	vkDestroySwapchainKHR(m_device, m_swapchain, nullptr);
 	vkDestroyDevice(m_device, nullptr);
 	vkDestroySurfaceKHR(m_instance, m_surface, nullptr);
-	glfwDestroyWindow(m_window);
-	glfwTerminate();
+	XFreeGC(dis, gc);
+	XDestroyWindow(dis,win);
+	XCloseDisplay(dis);
 
 	vkDestroyInstance(m_instance, nullptr);
 }
 
 int main(void)
 {
-	initGLFW();
 	createInstance();
 	createWindow();
 	getPhysicalDevice();
@@ -356,9 +404,10 @@ int main(void)
 	uint64_t frameIndex = 0;
 	std::vector<bool> layoutChanged(ui32Size(m_swapchainImages), false);
 
-	while (!(glfwWindowShouldClose(m_window) || m_shouldQuit)) {
+	while (true) {
 		uint32_t imageIndex;
-		VK_CHECK(vkAcquireNextImageKHR(m_device, m_swapchain, c_timeout, m_imageAvailableBinarySemaphores[frameIndex], VK_NULL_HANDLE, &imageIndex));
+		//VK_CHECK(vkAcquireNextImageKHR(m_device, m_swapchain, c_timeout, m_imageAvailableBinarySemaphores[frameIndex], VK_NULL_HANDLE, &imageIndex));
+		vkAcquireNextImageKHR(m_device, m_swapchain, c_timeout, m_imageAvailableBinarySemaphores[frameIndex], VK_NULL_HANDLE, &imageIndex);
 		VK_CHECK(vkWaitForFences(m_device, 1, &m_fence, true, c_timeout));
 		VK_CHECK(vkResetFences(m_device, 1, &m_fence));
 
@@ -417,9 +466,9 @@ int main(void)
 		presentInfo.pImageIndices = &imageIndex;
 		presentInfo.pResults = nullptr;
 
-		VK_CHECK(vkQueuePresentKHR(m_presentQueue, &presentInfo));
+		//VK_CHECK(vkQueuePresentKHR(m_presentQueue, &presentInfo));
+		vkQueuePresentKHR(m_presentQueue, &presentInfo);
 
-		glfwPollEvents();
 
 		++frameIndex;
 		if (frameIndex == c_swapchainImageCount) {
