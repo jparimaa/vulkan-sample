@@ -1,5 +1,7 @@
 # vulkan-sample
 
+A bare minimum vulkan application that can be compiled and executed on Linux.
+
 ## Build and execute
 
 Clone the repository with submodules
